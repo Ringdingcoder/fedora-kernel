@@ -54,7 +54,7 @@ Summary: The Linux kernel
 # For non-released -rc kernels, this will be appended after the rcX and
 # gitX tags, so a 3 here would become part of release "0.rcX.gitX.3"
 #
-%global baserelease 2
+%global baserelease 3
 %global fedora_build %{baserelease}
 
 # base_sublevel is the kernel version we're starting with and patching
@@ -85,7 +85,7 @@ Summary: The Linux kernel
 # The next upstream release sublevel (base_sublevel+1)
 %define upstream_sublevel %(echo $((%{base_sublevel} + 1)))
 # The rc snapshot level
-%define rcrev 2
+%define rcrev 5
 # The git snapshot level
 %define gitrev 0
 # Set rpm version accordingly
@@ -606,6 +606,7 @@ Source200: config-backports
 # This file is intentionally left empty in the stock kernel. Its a nicety
 # added for those wanting to do custom rebuilds with altered config opts.
 Source1000: config-local
+#Source1001: config-local
 
 # Sources for kernel-tools
 Source2000: cpupower.service
@@ -2285,6 +2286,12 @@ fi
 #                 ||----w |
 #                 ||     ||
 %changelog
+* Thu Mar  1 2012  <str@visotech.at> - 3.3.0-0.rc5.git0.3
+- rc5
+
+* Wed Feb 29 2012  <str@visotech.at> - 3.3.0-0.rc2.git0.3
+- with nandsim & ubifs
+
 * Tue Jan 31 2012 Josh Boyer <jwboyer@gmail.com> - 3.3.0-0.rc2.git0.2
 - Disable debugging options.
 
