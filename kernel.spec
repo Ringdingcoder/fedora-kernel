@@ -6,7 +6,15 @@ Summary: The Linux kernel
 # For a stable, released kernel, released_kernel should be 1. For rawhide
 # and/or a kernel built from an rc or git snapshot, released_kernel should
 # be 0.
-%global released_kernel 0
+%global released_kernel 1
+
+# Sign modules on x86.  Make sure the config files match this setting if more
+# architectures are added.
+%ifarch %{ix86} x86_64
+%global signmodules 1
+%else
+%global signmodules 0
+%endif
 
 # Save original buildid for later if it's defined
 %if 0%{?buildid:1}
@@ -58,9 +66,9 @@ Summary: The Linux kernel
 %global fedora_build %{baserelease}
 
 # base_sublevel is the kernel version we're starting with and patching
-# on top of -- for example, 2.6.22-rc7-git1 starts with a 2.6.21 base,
-# which yields a base_sublevel of 21.
-%define base_sublevel 2
+# on top of -- for example, 3.1-rc7-git1 starts with a 3.0 base,
+# which yields a base_sublevel of 0.
+%define base_sublevel 3
 
 ## If this is a released kernel ##
 %if 0%{?released_kernel}
@@ -85,9 +93,9 @@ Summary: The Linux kernel
 # The next upstream release sublevel (base_sublevel+1)
 %define upstream_sublevel %(echo $((%{base_sublevel} + 1)))
 # The rc snapshot level
-%define rcrev 5
+%define rcrev 7
 # The git snapshot level
-%define gitrev 0
+%define gitrev 2
 # Set rpm version accordingly
 %define rpmversion 3.%{upstream_sublevel}.0
 %endif
@@ -152,9 +160,6 @@ Summary: The Linux kernel
 # build a release kernel on rawhide
 %define with_release   %{?_with_release:      1} %{?!_with_release:      0}
 
-# Include driver backports (e.g. compat-wireless) in the kernel build.
-%define with_backports %{?_without_backports: 0} %{?!_without_backports: 1}
-
 # Set debugbuildsenabled to 1 for production (build separate debug kernels)
 #  and 0 for rawhide (all kernels are debug kernels).
 # See also 'make debug' and 'make release'.
@@ -206,20 +211,6 @@ Summary: The Linux kernel
 
 # The kernel tarball/base version
 %define kversion 3.%{base_sublevel}
-
-# The compat-wireless version
-%define cwversion 2012-01-26
-
-#######################################################################
-# If cwversion is less than kversion, make sure with_backports is
-# turned-off.
-#
-# For rawhide, disable with_backports immediately after a rebase...
-#
-# (Uncomment the '#' and both spaces below to disable with_backports.)
-#
-# % define with_backports 0
-#######################################################################
 
 %define make_target bzImage
 
@@ -388,7 +379,6 @@ Summary: The Linux kernel
 %define make_target image
 %define kernel_image arch/s390/boot/image
 %define with_tools 0
-%define with_backports 0
 %endif
 
 %ifarch sparc64
@@ -421,8 +411,8 @@ Summary: The Linux kernel
 %define hdrarch arm
 %define make_target bzImage
 %define kernel_image arch/arm/boot/zImage
-# we build a up kernel on armv5tel. its used for qemu.
-%ifnarch armv5tel
+# we build a up kernel on base softfp/hardfp platforms. its used for qemu.
+%ifnarch armv5tel armv7hl
 %define with_up 0
 %endif
 # we only build headers/perf/tools on the base arm arches
@@ -458,7 +448,6 @@ Summary: The Linux kernel
 %define with_debuginfo 0
 %define with_perf 0
 %define with_tools 0
-%define with_backports 0
 %define _enable_debug_packages 0
 %endif
 
@@ -515,7 +504,7 @@ Provides: kernel-modeset = 1\
 Provides: kernel-uname-r = %{KVERREL}%{?1:.%{1}}\
 Requires(pre): %{kernel_prereq}\
 Requires(pre): %{initrd_prereq}\
-Requires(pre): linux-firmware >= 20100806-2\
+Requires(pre): linux-firmware >= 20120206-0.1.git06c8f81\
 Requires(post): /sbin/new-kernel-pkg\
 Requires(preun): /sbin/new-kernel-pkg\
 Conflicts: %{kernel_dot_org_conflicts}\
@@ -563,12 +552,22 @@ BuildRequires: pciutils-devel gettext
 BuildConflicts: rhbuildsys(DiskFree) < 500Mb
 %if %{with_debuginfo}
 # Fancy new debuginfo generation introduced in Fedora 8/RHEL 6.
-BuildRequires: rpm-build >= 4.4.2.1-4
-%define debuginfo_args --strict-build-id
+# The -r flag to find-debuginfo.sh to invoke eu-strip --reloc-debug-sections
+# reduces the number of relocations in kernel module .ko.debug files and was
+# introduced with rpm 4.9 and elfutils 0.153.
+BuildRequires: rpm-build >= 4.9.0-1, elfutils >= elfutils-0.153-1
+%define debuginfo_args --strict-build-id -r
+%endif
+
+%if %{signmodules}
+BuildRequires: gnupg
 %endif
 
 Source0: ftp://ftp.kernel.org/pub/linux/kernel/v3.0/linux-%{kversion}.tar.xz
-Source1: compat-wireless-%{cwversion}.tar.bz2
+
+%if %{signmodules}
+Source11: genkey
+%endif
 
 Source15: merge.pl
 Source16: mod-extra.list
@@ -600,8 +599,6 @@ Source111: config-arm-tegra
 Source112: config-arm-kirkwood
 Source113: config-arm-imx
 Source114: config-arm-highbank
-
-Source200: config-backports
 
 # This file is intentionally left empty in the stock kernel. Its a nicety
 # added for those wanting to do custom rebuilds with altered config opts.
@@ -684,23 +681,26 @@ Patch471: floppy-Remove-_hlt-related-functions.patch
 Patch510: linux-2.6-silence-noise.patch
 Patch520: quite-apm.patch
 Patch530: linux-2.6-silence-fbcon-logo.patch
-Patch540: modpost-add-option-to-allow-external-modules-to-avoi.patch
 
 Patch700: linux-2.6-e1000-ich9-montevina.patch
 
 Patch800: linux-2.6-crash-driver.patch
 
 # crypto/
+Patch900: modsign-20111207.patch
 
 # virt + ksm patches
 Patch1555: fix_xen_guest_on_old_EC2.patch
+Patch1556: linux-3.3-virtio-scsi.patch
 
 # DRM
 #atch1700: drm-edid-try-harder-to-fix-up-broken-headers.patch
+Patch1800: drm-vgem.patch
 
 # nouveau + drm fixes
 # intel drm is all merged upstream
 Patch1824: drm-intel-next.patch
+Patch1825: drm-i915-dp-stfu.patch
 
 Patch1900: linux-2.6-intel-iommu-igfx.patch
 
@@ -714,9 +714,13 @@ Patch2900: linux-2.6-v4l-dvb-update.patch
 Patch2901: linux-2.6-v4l-dvb-experimental.patch
 
 # fs fixes
+Patch4000: ext4-fix-resize-when-resizing-within-single-group.patch
 
 # NFSv4
 Patch1101: linux-3.1-keys-remove-special-keyring.patch
+Patch1102: linux-3.3-newidmapper-01.patch
+Patch1103: linux-3.3-newidmapper-02.patch
+Patch1104: linux-3.3-newidmapper-03.patch
 
 # patches headed upstream
 Patch12016: disable-i8042-check-on-apple-mac.patch
@@ -725,34 +729,56 @@ Patch12303: dmar-disable-when-ricoh-multifunction.patch
 
 Patch13003: efi-dont-map-boot-services-on-32bit.patch
 
+Patch14000: hibernate-freeze-filesystems.patch
+
+Patch14010: lis3-improve-handling-of-null-rate.patch
+
 Patch20000: utrace.patch
 
 # Flattened devicetree support
 Patch21000: arm-omap-dt-compat.patch
 Patch21001: arm-smsc-support-reading-mac-address-from-device-tree.patch
+Patch21004: arm-tegra-nvec-kconfig.patch
+
+# highbank patches
+# Highbank clock functions need to be EXPORT for module builds
+Patch21010: highbank-export-clock-functions.patch
 
 Patch21070: ext4-Support-check-none-nocheck-mount-options.patch
 
-#rhbz 773392
-Patch21073: KVM-x86-extend-struct-x86_emulate_ops-with-get_cpuid.patch
-Patch21074: KVM-x86-fix-missing-checks-in-syscall-emulation.patch
-
-#rhbz 783211
-Patch21087: fs-Inval-cache-for-parent-block-device-if-fsync-called-on-part.patch
-
-Patch21091: kmemleak.patch
-
 Patch21092: udlfb-remove-sysfs-framebuffer-device-with-USB-disconnect.patch
 
-# compat-wireless patches
-Patch50000: compat-wireless-config-fixups.patch
-Patch50001: compat-wireless-pr_fmt-warning-avoidance.patch
-Patch50002: compat-wireless-integrated-build.patch
-Patch50003: compat-wireless-use-kconfig_h.patch
-Patch50004: compat-move-br_port_exists-to-compat-2_6_36_h.patch
-Patch50005: compat-wireless-fix-some-config-options.patch
+Patch21093: rt2x00_fix_MCU_request_failures.patch
 
-Patch50100: ath9k-use-WARN_ON_ONCE-in-ath_rc_get_highest_rix.patch
+Patch21094: power-x86-destdir.patch
+
+Patch21095: hfsplus-Change-finder_info-to-u32.patch
+Patch21096: hfsplus-Add-an-ioctl-to-bless-files.patch
+
+#rhbz 788260
+Patch21233: jbd2-clear-BH_Delay-and-BH_Unwritten-in-journal_unmap_buf.patch
+
+#rhbz 754518
+Patch21235: scsi-sd_revalidate_disk-prevent-NULL-ptr-deref.patch
+
+Patch21250: mcelog-rcu-splat.patch
+Patch21260: x86-Avoid-invoking-RCU-when-CPU-is-idle.patch
+
+#rhbz 795544
+Patch21280: ums_realtek-do-not-use-stack-memory-for-DMA-in-__do_.patch
+
+#rhbz 727865 730007
+Patch21300: ACPICA-Fix-regression-in-FADT-revision-checks.patch
+
+#rhbz 728478
+Patch21302: sony-laptop-Enable-keyboard-backlight-by-default.patch
+
+#rhbz 803809 CVE-2012-1179
+Patch21304: mm-thp-fix-pmd_bad-triggering.patch
+
+Patch21400: unhandled-irqs-switch-to-polling.patch
+
+Patch22000: weird-root-dentry-name-debug.patch
 
 %endif
 
@@ -1230,17 +1256,17 @@ else
 fi
 
 # Now build the fedora kernel tree.
-if [ -d linux-%{kversion}.%{_target_cpu} ]; then
+if [ -d linux-%{KVERREL} ]; then
   # Just in case we ctrl-c'd a prep already
   rm -rf deleteme.%{_target_cpu}
   # Move away the stale away, and delete in background.
-  mv linux-%{kversion}.%{_target_cpu} deleteme.%{_target_cpu}
+  mv linux-%{KVERREL} deleteme.%{_target_cpu}
   rm -rf deleteme.%{_target_cpu} &
 fi
 
-cp -rl vanilla-%{vanillaversion} linux-%{kversion}.%{_target_cpu}
+cp -rl vanilla-%{vanillaversion} linux-%{KVERREL}
 
-cd linux-%{kversion}.%{_target_cpu}
+cd linux-%{KVERREL}
 
 # released_kernel with possible stable updates
 %if 0%{?stable_base}
@@ -1268,16 +1294,6 @@ make -f %{SOURCE19} config-release
 
 # Dynamically generate kernel .config files from config-* files
 make -f %{SOURCE20} VERSION=%{version} configs
-
-%if %{with_backports}
-# Turn-off bits provided by compat-wireless
-for i in %{all_arch_configs}
-do
-  mv $i $i.tmp
-  ./merge.pl %{SOURCE200} $i.tmp > $i
-  rm $i.tmp
-done
-%endif
 
 # Merge in any user-provided local config option changes
 %if %{?all_arch_configs:1}%{!?all_arch_configs:0}
@@ -1314,12 +1330,14 @@ ApplyPatch linux-2.6-i386-nx-emulation.patch
 #
 #pplyPatch arm-omap-dt-compat.patch
 ApplyPatch arm-smsc-support-reading-mac-address-from-device-tree.patch
+ApplyPatch arm-tegra-nvec-kconfig.patch
 
 #
 # bugfixes to drivers and filesystems
 #
 
 # ext4
+ApplyPatch ext4-fix-resize-when-resizing-within-single-group.patch
 
 # xfs
 
@@ -1330,6 +1348,9 @@ ApplyPatch arm-smsc-support-reading-mac-address-from-device-tree.patch
 
 # NFSv4
 ApplyPatch linux-3.1-keys-remove-special-keyring.patch
+ApplyPatch linux-3.3-newidmapper-01.patch
+ApplyPatch linux-3.3-newidmapper-02.patch
+ApplyPatch linux-3.3-newidmapper-03.patch
 
 # USB
 
@@ -1377,11 +1398,6 @@ ApplyPatch linux-2.6-silence-noise.patch
 # Make fbcon not show the penguins with 'quiet'
 ApplyPatch linux-2.6-silence-fbcon-logo.patch
 
-%if %{with_backports}
-# modpost: add option to allow external modules to avoid taint
-ApplyPatch modpost-add-option-to-allow-external-modules-to-avoi.patch
-%endif
-
 # Changes to upstream defaults.
 
 
@@ -1392,17 +1408,20 @@ ApplyPatch linux-2.6-crash-driver.patch
 ApplyPatch linux-2.6-e1000-ich9-montevina.patch
 
 # crypto/
+ApplyPatch modsign-20111207.patch
 
 # Assorted Virt Fixes
 ApplyPatch fix_xen_guest_on_old_EC2.patch
 
 # DRM core
 #ApplyPatch drm-edid-try-harder-to-fix-up-broken-headers.patch
+ApplyPatch drm-vgem.patch
 
 # Nouveau DRM
 
 # Intel DRM
 ApplyOptionalPatch drm-intel-next.patch
+ApplyPatch drm-i915-dp-stfu.patch
 
 ApplyPatch linux-2.6-intel-iommu-igfx.patch
 
@@ -1418,27 +1437,58 @@ ApplyOptionalPatch linux-2.6-v4l-dvb-experimental.patch
 
 # Patches headed upstream
 ApplyPatch disable-i8042-check-on-apple-mac.patch
+ApplyPatch linux-3.3-virtio-scsi.patch
 
 # rhbz#605888
 ApplyPatch dmar-disable-when-ricoh-multifunction.patch
 
 ApplyPatch efi-dont-map-boot-services-on-32bit.patch
 
+ApplyPatch hibernate-freeze-filesystems.patch
+
+ApplyPatch lis3-improve-handling-of-null-rate.patch
+
 # utrace.
 ApplyPatch utrace.patch
 
 ApplyPatch ext4-Support-check-none-nocheck-mount-options.patch
 
-#rhbz 773392
-ApplyPatch KVM-x86-extend-struct-x86_emulate_ops-with-get_cpuid.patch
-ApplyPatch KVM-x86-fix-missing-checks-in-syscall-emulation.patch
-
-ApplyPatch kmemleak.patch
-
 ApplyPatch udlfb-remove-sysfs-framebuffer-device-with-USB-disconnect.patch
 
-#rhbz 783211
-ApplyPatch fs-Inval-cache-for-parent-block-device-if-fsync-called-on-part.patch
+#rhbz 772772
+ApplyPatch rt2x00_fix_MCU_request_failures.patch
+
+ApplyPatch power-x86-destdir.patch
+
+ApplyPatch hfsplus-Change-finder_info-to-u32.patch
+ApplyPatch hfsplus-Add-an-ioctl-to-bless-files.patch
+
+#rhbz 788269
+ApplyPatch jbd2-clear-BH_Delay-and-BH_Unwritten-in-journal_unmap_buf.patch
+
+#rhbz 754518
+ApplyPatch scsi-sd_revalidate_disk-prevent-NULL-ptr-deref.patch
+
+ApplyPatch mcelog-rcu-splat.patch
+
+#rhbz 795544
+ApplyPatch ums_realtek-do-not-use-stack-memory-for-DMA-in-__do_.patch
+
+#rhbz 727865 730007
+ApplyPatch ACPICA-Fix-regression-in-FADT-revision-checks.patch
+
+#rhbz 728478
+ApplyPatch sony-laptop-Enable-keyboard-backlight-by-default.patch
+
+ApplyPatch unhandled-irqs-switch-to-polling.patch
+
+ApplyPatch weird-root-dentry-name-debug.patch
+
+#rhbz 803809 CVE-2012-1179
+ApplyPatch mm-thp-fix-pmd_bad-triggering.patch
+
+#Highbank clock functions
+ApplyPatch highbank-export-clock-functions.patch 
 
 # END OF PATCH APPLICATIONS
 
@@ -1487,36 +1537,37 @@ done
 # end of kernel config
 %endif
 
+# get rid of unwanted files resulting from patch fuzz
+find . \( -name "*.orig" -o -name "*~" \) -exec rm -f {} \; >/dev/null
+
 # remove unnecessary SCM files
 find . -name .gitignore -exec rm -f {} \; >/dev/null
 
-cd ..
-
-%if %{with_backports}
-
-# Always start fresh
-rm -rf compat-wireless-%{cwversion}
-
-# Extract the compat-wireless bits
-%setup -q -n kernel-%{kversion}%{?dist} -T -D -a 1
-
-cd compat-wireless-%{cwversion}
-
-ApplyPatch compat-wireless-config-fixups.patch
-ApplyPatch compat-wireless-pr_fmt-warning-avoidance.patch
-ApplyPatch compat-wireless-integrated-build.patch
-ApplyPatch compat-wireless-use-kconfig_h.patch
-ApplyPatch compat-move-br_port_exists-to-compat-2_6_36_h.patch
-ApplyPatch compat-wireless-fix-some-config-options.patch
-
-ApplyPatch ath9k-use-WARN_ON_ONCE-in-ath_rc_get_highest_rix.patch
-
-cd ..
-
+%if %{signmodules}
+cat <<EOF
+###
+### Now generating a PGP key pair to be used for signing modules.
+###
+### If this takes a long time, you might wish to run rngd in the background to
+### keep the supply of entropy topped up.  It needs to be run as root, and
+### should use a hardware random number generator if one is available, eg:
+###
+###     rngd -r /dev/hwrandom
+###
+### If one isn't available, the pseudo-random number generator can be used:
+###
+###     rngd -r /dev/urandom
+###
+EOF
+gpg --homedir . --batch --gen-key %{SOURCE11}
+cat <<EOF
+###
+### Key pair generated.
+###
+EOF
 %endif
 
-# get rid of unwanted files resulting from patch fuzz
-find . \( -name "*.orig" -o -name "*~" \) -exec rm -f {} \; >/dev/null
+cd ..
 
 ###
 ### build
@@ -1616,6 +1667,14 @@ BuildKernel() {
     # Override $(mod-fw) because we don't want it to install any firmware
     # we'll get it from the linux-firmware package and we don't want conflicts
     make -s ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT modules_install KERNELRELEASE=$KernelVer mod-fw=
+
+%if %{signmodules}
+        if [ -z "$(readelf -n $(find fs/ -name \*.ko | head -n 1) | grep module.sig)" ]; then
+            echo "ERROR: modules are NOT signed" >&2;
+            exit 1;
+        fi
+%endif
+
 %ifarch %{vdso_arches}
     make -s ARCH=$Arch INSTALL_MOD_PATH=$RPM_BUILD_ROOT vdso_install KERNELRELEASE=$KernelVer
     if [ ! -s ldconfig-kernel.conf ]; then
@@ -1640,9 +1699,6 @@ BuildKernel() {
     # dirs for additional modules per module-init-tools, kbuild/modules.txt
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/extra
     mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/updates
-%if %{with_backports}
-    mkdir -p $RPM_BUILD_ROOT/lib/modules/$KernelVer/backports
-%endif
     # first copy everything
     cp --parents `find  -type f -name "Makefile*" -o -name "Kconfig*"` $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
     cp Module.symvers $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
@@ -1783,40 +1839,24 @@ BuildKernel() {
     rm mod-extra.list mod-extra2.list mod-extra3.list
     popd
 
-    # Move the devel headers out of the root file system
-    mkdir -p $RPM_BUILD_ROOT/usr/src/kernels
-    mv $RPM_BUILD_ROOT/lib/modules/$KernelVer/build $RPM_BUILD_ROOT/$DevelDir
-    ln -sf ../../..$DevelDir $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
-
-    # prune junk from kernel-devel
-    find $RPM_BUILD_ROOT/usr/src/kernels -name ".*.cmd" -exec rm -f {} \;
-
-%if %{with_backports}
-
-    cd ../compat-wireless-%{cwversion}/
-
-    install -m 644 config.mk \
-	$RPM_BUILD_ROOT/boot/config.mk-compat-wireless-%{cwversion}-$KernelVer
-
-    make -s ARCH=$Arch V=1 %{?_smp_mflags} \
-	KLIB_BUILD=../linux-%{kversion}.%{_target_cpu} \
-	KMODPATH_ARG="INSTALL_MOD_PATH=$RPM_BUILD_ROOT" \
-	KMODDIR="backports" install-modules %{?sparse_mflags}
-
-    # mark modules executable so that strip-to-file can strip them
-    find $RPM_BUILD_ROOT/lib/modules/$KernelVer/backports -name "*.ko" \
-	-type f | xargs --no-run-if-empty chmod u+x
-
-    cd -
-
-%endif
-
     # remove files that will be auto generated by depmod at rpm -i time
     for i in alias alias.bin builtin.bin ccwmap dep dep.bin ieee1394map inputmap isapnpmap ofmap pcimap seriomap symbols symbols.bin usbmap
     do
       rm -f $RPM_BUILD_ROOT/lib/modules/$KernelVer/modules.$i
     done
 
+    # Move the devel headers out of the root file system
+    mkdir -p $RPM_BUILD_ROOT/usr/src/kernels
+    mv $RPM_BUILD_ROOT/lib/modules/$KernelVer/build $RPM_BUILD_ROOT/$DevelDir
+
+    # This is going to create a broken link during the build, but we don't use
+    # it after this point.  We need the link to actually point to something
+    # when kernel-devel is installed, and a relative link doesn't work across
+    # the F17 UsrMove feature.
+    ln -sf $DevelDir $RPM_BUILD_ROOT/lib/modules/$KernelVer/build
+
+    # prune junk from kernel-devel
+    find $RPM_BUILD_ROOT/usr/src/kernels -name ".*.cmd" -exec rm -f {} \;
 }
 
 ###
@@ -1828,7 +1868,7 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/boot
 mkdir -p $RPM_BUILD_ROOT%{_libexecdir}
 
-cd linux-%{kversion}.%{_target_cpu}
+cd linux-%{KVERREL}
 
 %if %{with_debug}
 BuildKernel %make_target %kernel_image debug
@@ -1894,6 +1934,14 @@ make %{?_smp_mflags} -C tools/power/cpupower CPUFREQ_BENCH=false
     make %{?_smp_mflags} centrino-decode powernow-k8-decode
     cd -
 %endif
+%ifarch %{ix86} x86_64
+   cd tools/power/x86/x86_energy_perf_policy/
+   make
+   cd -
+   cd tools/power/x86/turbostat
+   make
+   cd -
+%endif #turbostat/x86_energy_perf_policy
 %endif
 %endif
 
@@ -1931,7 +1979,7 @@ find Documentation -type d | xargs chmod u+w
 
 %install
 
-cd linux-%{kversion}.%{_target_cpu}
+cd linux-%{KVERREL}
 
 %if %{with_doc}
 docdir=$RPM_BUILD_ROOT%{_datadir}/doc/kernel-doc-%{rpmversion}
@@ -2010,7 +2058,15 @@ mkdir -p %{buildroot}%{_unitdir} %{buildroot}%{_sysconfdir}/sysconfig
 install -m644 %{SOURCE2000} %{buildroot}%{_unitdir}/cpupower.service
 install -m644 %{SOURCE2001} %{buildroot}%{_sysconfdir}/sysconfig/cpupower
 %endif
-
+%ifarch %{ix86} x86_64
+   mkdir -p %{buildroot}%{_mandir}/man8
+   cd tools/power/x86/x86_energy_perf_policy
+   make DESTDIR=%{buildroot} install
+   cd -
+   cd tools/power/x86/turbostat
+   make DESTDIR=%{buildroot} install
+   cd -
+%endif #turbostat/x86_energy_perf_policy
 %endif
 
 %if %{with_bootwrapper}
@@ -2173,6 +2229,7 @@ fi
 %dir %{_libexecdir}/perf-core
 %{_libexecdir}/perf-core/*
 %{_mandir}/man[1-8]/perf*
+%doc linux-%{KVERREL}/tools/perf/Documentation/examples.txt
 
 %files -n python-perf
 %defattr(-,root,root)
@@ -2201,6 +2258,12 @@ fi
 %{_unitdir}/cpupower.service
 %{_mandir}/man[1-8]/cpupower*
 %config(noreplace) %{_sysconfdir}/sysconfig/cpupower
+%ifarch %{ix86} x86_64
+%{_bindir}/x86_energy_perf_policy
+%{_mandir}/man8/x86_energy_perf_policy*
+%{_bindir}/turbostat
+%{_mandir}/man8/turbostat*
+%endif
 %endif
 
 %if %{with_debuginfo}
@@ -2236,10 +2299,6 @@ fi
 /lib/modules/%{KVERREL}%{?2:.%{2}}/build\
 /lib/modules/%{KVERREL}%{?2:.%{2}}/source\
 /lib/modules/%{KVERREL}%{?2:.%{2}}/updates\
-%if %{with_backports}\
-/boot/config.mk-compat-wireless-%{cwversion}-%{KVERREL}%{?2:.%{2}}\
-/lib/modules/%{KVERREL}%{?2:.%{2}}/backports\
-%endif\
 %ifarch %{vdso_arches}\
 /lib/modules/%{KVERREL}%{?2:.%{2}}/vdso\
 /etc/ld.so.conf.d/kernel-%{KVERREL}%{?2:.%{2}}.conf\
@@ -2277,8 +2336,8 @@ fi
 # and build.
 
 #  ___________________________________________________________
-# / This branch is for Fedora 17. You probably want to commit \
-# \ to the F-16 branch instead, or in addition to this one.   /
+# / This branch is for Fedora 18. You probably want to commit \
+# \ to the F-17 branch instead, or in addition to this one.   /
 #  -----------------------------------------------------------
 #         \   ^__^
 #          \  (@@)\_______
@@ -2291,6 +2350,291 @@ fi
 
 * Wed Feb 29 2012  <str@visotech.at> - 3.3.0-0.rc2.git0.3
 - with nandsim & ubifs
+
+* Mon Mar 19 2012 Dave Jones <davej@redhat.com> - 3.3.0-2
+- Disable debugging options.
+
+* Sun Mar 18 2012 Dave Jones <davej@redhat.com>
+- Linux 3.3
+
+* Fri Mar 16 2012 Adam Jackson <ajax@redhat.com>
+- drm-i915-dp-stfu.patch: Muzzle a bunch of DP WARN()s.  They're not wrong,
+  but they're not helpful at this point.
+
+* Fri Mar 16 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc7.git2.1
+- Linux v3.3-rc7-103-g0c4d067
+
+* Fri Mar 16 2012 Justin M. Forbes <jforbes@redhat.com>
+- re-enable threading on hibernate compression/decompression
+
+* Fri Mar 16 2012 Josh Boyer <jwboyer@redhat.com>
+- Fix irqpoll patch to really only apply for ASM108x machines (rhbz 800520)
+
+* Thu Mar 15 2012 Justin M. Forbes <jforbes@redhat.com>
+- CVE-2012-1179 fix pmd_bad() triggering in code paths holding mmap_sem read mode (rhbz 803809)
+
+* Wed Mar 14 2012 Josh Boyer <jwboyer@redhat.com>
+- Fixup irqpoll patch to only activate on machines with ASM108x PCI bridge
+
+* Tue Mar 13 2012 John W. Linville <linville@redhat.com>
+- Remove infrastructure related to compat-wireless integration
+
+* Mon Mar 12 2012 Mark Langsdorf <mark.langsdorf@calxeda.com>
+- Re-enable highbank config option and add new config file to support it
+
+* Mon Mar 12 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc7.git0.5
+- Reenable debugging options.
+
+* Mon Mar 12 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc7.git0.4
+- Disable debugging options.
+
+* Mon Mar 12 2012 Dave Jones <davej@redhat.com>
+- Linux 3.3-rc7
+
+* Wed Mar 07 2012 Dave Jones <davej@redhat.com>
+- Add debug patch for bugs 787171/766277
+
+* Wed Mar 07 2012 Josh Boyer <jwboyer@redhat.com>
+- Add modsign for x86 builds
+
+* Wed Mar 07 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc6.git2.2
+- Disable debugging options.
+
+* Wed Mar 07 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc6.git2.1
+- Linux v3.3-rc6-132-g55062d0
+
+* Wed Mar 07 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc6.git1.1
+- Linux v3.3-rc6-131-g097d591
+
+* Mon Mar 05 2012 Dave Jones <davej@redhat.com>
+- Linux 3.3-rc6
+
+* Mon Mar 05 2012 John W. Linville <linville@redhat.com>
+- Turn-off CONFIG_B43_BCMA_EXTRA to avoid b43/brcmsmac overlap
+
+* Mon Mar 05 2012 Mark Wielaard <mark@klomp.org>
+- Add -r to debuginfo_args to invoke eu-strip --reloc-debug-sections.
+
+* Fri Mar 02 2012 Justin M. Forbes <jforbes@redhat.com> 
+- Disable threading in hibernate compression/decompression
+
+* Fri Mar 02 2012 Adam Jackson <ajax@redhat.com>
+- drm-intel-crtc-dpms-fix.patch: Fix system hang on gen2 kit on DPMS (#730853)
+
+* Thu Mar 01 2012 Dave Jones <davej@redhat.com>
+- temporarily switch to low-performance polling IRQ mode when
+  unexpected IRQs occur.
+
+* Wed Feb 29 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc5.git3.1
+- Linux v3.3-rc5-101-g88ebdda
+
+* Wed Feb 29 2012 John W. Linville <linville@redhat.com>
+- Disable with_backports (pending removal)
+- Disable a number of drivers for ancient wireless LAN cards
+- Disable iwm3200-related drivers (hardware never released)
+- Disable "thin firmware" version of libertas driver (libertas_tf)
+
+* Tue Feb 28 2012 Josh Boyer <jwboyer@redhat.com>
+- Add patch to enable keyboard backlight on Sony laptops (rhbz 728478)
+
+* Tue Feb 28 2012 Dave Jones <davej@redhat.com>
+- Disable CONFIG_USB_DEVICEFS (Deprecated).
+
+* Tue Feb 28 2012 Justin M. Forbes <jforbes@redhat.com> 
+- CVE-2012-1090 CIFS: fix dentry refcount leak when opening a FIFO on lookup (rhbz 798296)
+
+* Tue Feb 28 2012 Dave Jones <davej@redhat.com> - 3.3.0-0.rc5.git2.1
+- Linux v3.3-rc5-88-g586c6e7
+
+* Mon Feb 27 2012 Josh Boyer <jwboyer@redhat.com>
+- Add patch to fix regression in FADT revision checks (rhbz 730007 727865)
+
+* Mon Feb 27 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc5.git1.1
+- Linux 3.3-rc5-git1 (upstream 500dd2370e77c9551ba298bdeeb91b02d8402199)
+- Reenable debugging options.
+
+* Sun Feb 26 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc5.git0.3
+- Add patch from Linus Torvalds to fix 32-bit autofs4 build
+
+* Sat Feb 25 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc5.git0.2
+- Disable debugging options.
+
+* Sat Feb 25 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc5.git0.1
+- Linux 3.3-rc5
+
+* Sat Feb 25 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git5.1
+- Linux 3.3-rc4-git5 (upstream b52b80023f262ce8a0ffdcb490acb23e8678377a)
+
+* Fri Feb 24 2012 Josh Boyer <jwboyer@redhat.com>
+- Linux 3.3-rc4-git4 (upstream bb4c7e9a9908548b458f34afb2fee74dc0d49f90)
+
+* Thu Feb 23 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- Further ARM config updates
+
+* Wed Feb 22 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git3.1
+- Linux 3.3-rc4-git3 (upstream 45196cee28a5bcfb6ddbe2bffa4270cbed66ae4b)
+
+* Wed Feb 22 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git2.1
+- Linux 3.3-rc4-git2 (upstream 719741d9986572d64b47c35c09f5e7bb8d389400)
+
+* Tue Feb 21 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git1.4
+- Drop x86-Avoid-invoking-RCU-when-CPU-is-idle.patch (rhbz 795050)
+
+* Tue Feb 21 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- update ARM configs to F-17 branch
+
+* Tue Feb 21 2012 Josh Boyer <jwboyer@redhat.com>
+- ext4: fix resize when resizing within single group (rhbz 786454)
+- imon: don't wedge hardware after early callbacks (rhbz 781832)
+
+* Tue Feb 21 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git1.2
+- Enable rtl8712 driver (rhbz 699618)
+- Linux 3.3-rc4-git1 (upstream 27e74da9800289e69ba907777df1e2085231eff7)
+
+* Mon Feb 20 2012 Dave Jones <davej@redhat.com>
+- Do not call drivers when invalidating partitions for -ENOMEDIUM
+
+* Mon Feb 20 2012 Josh Boyer <jwboyer@redhat.com>
+- Avoid using stack variables in ums_realtek (again) (rhbz 795544)
+
+* Mon Feb 20 2012 Dave Jones <davej@redhat.com>
+- NFSv4: Fix an Oops in the NFSv4 getacl code
+
+* Mon Feb 20 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git0.2
+- Reenable debugging options.
+
+* Sun Feb 19 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc4.git0.1
+- Linux 3.3-rc4
+- Disable debugging options.
+
+* Sun Feb 19 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- Further updates to ARM config
+- Fix and re-enable Tegra NVEC patch
+
+* Fri Feb 17 2012 Dave Jones <davej@redhat.com>
+- improve handling of null rate in LIS3LV02Dx accelerometer driver. (rhbz 785814)
+
+* Fri Feb 17 2012 Dave Jones <davej@redhat.com>
+- Reenable radio drivers. (rhbz 784824)
+
+* Fri Feb 17 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git7.2
+- Freeze all filesystems during system suspend/hibernate.
+
+* Fri Feb 17 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git7.1
+- Linux 3.3-rc3-git7 (upstream 4903062b5485f0e2c286a23b44c9b59d9b017d53)
+
+* Wed Feb 15 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- Update ARM configs to 3.3 kernel
+- use mainline cpu freq options
+
+* Wed Feb 15 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git6.2
+- Linux 3.3-rc3-git6 (upstream c38e23456278e967f094b08247ffc3711b1029b2)
+- Require newer linux-firmware package for updated bnx2/bnx2x drivers
+
+* Wed Feb 15 2012 Adam Jackson <ajax@redhat.com>
+- Add patch and config change for vgem.ko
+
+* Tue Feb 14 2012 Josh Boyer <jwboyer@redhat.com>
+- Add patch to fix RCU usage during cpu idle (rhbz 789641)
+- Add patch to fix mce rcu splat (rhbz 789644)
+- Patch to enable CONFIG_KEYS_COMPAT on s390 from David Howells (rhbz 790367)
+- Modify sd_revalidate_disk patch to do a WARN_ONCE instead of silently skip
+- Install perf examples as suggested by Jason Baron
+
+* Tue Feb 14 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git5.1
+- Linux 3.3-rc3-git5 (upstream ce5afed937f0a823d3b00c9459409c3f5f2fbd5d)
+
+* Tue Feb 14 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- Update ARM components in Makefile.config
+
+* Mon Feb 13 2012 Josh Boyer <jwboyer@redhat.com>
+- Apply patch to fix autofs4 lockdep splat (rhbz 714828)
+
+* Mon Feb 13 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git4.1
+- Linux 3.3-rc3-git4 (upstream 3ec1e88b33a3bdd852ce8e014052acec7a9da8b5)
+
+* Sat Feb 11 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git3.1
+- Linux 3.3-rc3-git3 (upstream 8df54d622a120058ee8bec38743c9b8f091c8e58)
+
+* Fri Feb 10 2012 Josh Boyer <jwboyer@redhat.com>
+- Patch to prevent NULL pointer dereference in sd_revalidate_disk (rhbz 754518)
+
+* Fri Feb 10 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git2.1
+- Linux 3.3-rc3-git2 (upstream 612b8507c5d545feed2437b3d2239929cac7688d)
+
+* Fri Feb 10 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc3.git1.2
+- Reenable debugging options.
+
+* Fri Feb 10 2012 Josh Boyer <jwboyer@redhat.com>
+- Linux 3.3-rc3-git1 (upstream 19e00f2f1d5273dbc52eab0ebc315cae3aa44b2a)
+
+* Thu Feb 09 2012 Dave Jones <davej@redhat.com>
+- bsg: fix sysfs link remove warning (#787281)
+
+* Thu Feb 09 2012 Josh Boyer <jwboyer@gmail.com> - 3.3.0-0.rc3.git0.2
+- Disable debugging options.
+
+* Thu Feb 09 2012 Josh Boyer <jwboyer@redhat.com>
+- Linux 3.3-rc3
+
+* Wed Feb 08 2012 Josh Boyer <jwboyer@redhat.com>
+- Remove a bogus inline declaration that broke ARM and ppc builds (rhbz 787373)
+- CVE-2011-4086 jbd2: unmapped buffer with _Unwritten or _Delay flags set can
+  lead to DoS (rhbz 788260)
+- Add new upstream NFS id mapping patches from Steve Dickson
+
+* Tue Feb 07 2012 Josh Boyer <jwboyer@redhat.com>
+- Linux 3.3-rc2-git6 (upstream 6bd113f1f4a8c0d05c4dbadb300319e0e3526db4)
+
+* Tue Feb 07 2012 Chris Wright <chrisw@redhat.com>
+- Enable Open vSwitch
+
+* Tue Feb 07 2012 Justin M. Forbes <jforbes@redhat.com>
+- Add virtio-scsi support
+
+* Tue Feb 07 2012 Josh Boyer <jwboyer@redhat.com>
+- Make build/ point to /usr/src/kernels instead of being relative (rhbz 788125)
+
+* Tue Feb 07 2012 Josh Boyer <jwboyer@redhat.com>
+- Linux 3.3-rc2-git5 (upstream 8597559a78e1cde158b999212bc9543682638eb1)
+- Add hfsplus file blessing patches from Matthew Garrett
+
+* Mon Feb  6 2012 Peter Robinson <pbrobinson@fedoraproject.org>
+- Build an ARM hardfp base versatile/qemu kernel
+
+* Mon Feb 06 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc2.git4.1
+- Linux 3.3-rc2-git4 (upstream 23783f817bceedd6d4e549385e3f400ea64059e5)
+- Build and ship turbostat and x86_energy_perf_policy in kernel-tools
+
+* Mon Feb 06 2012 John W. Linville <linville@redhat.com>
+- Update compat-wireless snapshot from 2012-02-05
+
+* Fri Feb 03 2012 Josh Boyer <jwboyer@redhat.com>
+- Goodbye iSeries.  Only sfr loved you and even he's moved on
+
+* Fri Feb 03 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc2.git3.2
+- Drop patch that was NAKed upstream (rhbz 783211)
+
+* Fri Feb 03 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc2.git3.1
+- Linux 3.3-rc2-git3 (upstream 7f06db34e55af8fc33cf3d6d46d869cb7a372b5d)
+- Patch from Jakub Kicinski to fix rt2x00 MCU requests (rhbz 772772)
+
+* Thu Feb 02 2012 Dennis Gilmore <dennis@ausil.us>
+- disable TOUCHSCREEN_EGALAX on arm arches
+- build in CACHE_L2X0 on the imx kernel
+- dont build the module for imx21 usb since its not something we support
+
+* Thu Feb 02 2012 Josh Boyer <jwboyer@redhat.com> - 3.3.0-0.rc2.git2.1
+- Linux 3.3-rc2-git2 (upstream 24b36da33c64368775f4ef9386d44dce1d2bc8cf)
+
+* Thu Feb 02 2012 Dennis Gilmore <dennis@ausil.us>
+- disable compat-wireless on arm arches
+
+* Wed Feb 01 2012 Josh Boyer <jwboyer@gmail.com> - 3.3.0-0.rc2.git1.1
+- Linux 3.3-rc2-git1 (upstream ce106ad31016b5da1168496cd0454a6290555f84)
+
+* Wed Feb 01 2012 Josh Boyer <jwboyer@gmail.com> - 3.3.0-0.rc2.git0.3
+- Reenable debugging options.
 
 * Tue Jan 31 2012 Josh Boyer <jwboyer@gmail.com> - 3.3.0-0.rc2.git0.2
 - Disable debugging options.
