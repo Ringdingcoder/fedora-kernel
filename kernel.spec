@@ -2345,10 +2345,10 @@ fi
 #                 ||----w |
 #                 ||     ||
 %changelog
-* Thu Mar  1 2012  <str@visotech.at> - 3.3.0-0.rc5.git0.3
+* Mon Apr  9 2012  <str@visotech.at> - 3.3.0-0.rc5.git0.3
 - rc5
 
-* Wed Feb 29 2012  <str@visotech.at> - 3.3.0-0.rc2.git0.3
+* Mon Apr  9 2012  <str@visotech.at> - 3.3.0-0.rc2.git0.3
 - with nandsim & ubifs
 
 * Mon Mar 19 2012 Dave Jones <davej@redhat.com> - 3.3.0-2
