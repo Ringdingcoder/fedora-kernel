@@ -10,11 +10,7 @@ Summary: The Linux kernel
 
 # Sign modules on x86.  Make sure the config files match this setting if more
 # architectures are added.
-%ifarch %{ix86} x86_64
-%global signmodules 1
-%else
 %global signmodules 0
-%endif
 
 # Save original buildid for later if it's defined
 %if 0%{?buildid:1}
