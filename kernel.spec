@@ -62,7 +62,7 @@ Summary: The Linux kernel
 # For non-released -rc kernels, this will be appended after the rcX and
 # gitX tags, so a 3 here would become part of release "0.rcX.gitX.3"
 #
-%global baserelease 302
+%global baserelease 303
 %global fedora_build %{baserelease}
 
 # base_sublevel is the kernel version we're starting with and patching
@@ -763,6 +763,8 @@ Patch25176: br-fix-use-of-rx_handler_data-in-code-executed-on-no.patch
 #rhbz 1024002
 Patch25177: libata-implement-ATA_HORKAGE_NO_NCQ_TRIM-and-apply-it-to-Micro-M500-SSDs.patch
 
+Patch33333: kvm-mwait-nop-20130429.patch
+
 # END OF PATCH DEFINITIONS
 
 %endif
@@ -1252,9 +1254,9 @@ else
 fi
 
 # Now build the fedora kernel tree.
-cp -rl vanilla-%{vanillaversion} linux-%{KVERREL}
+cp -rl vanilla-%{vanillaversion} linux-localbuild
 
-cd linux-%{KVERREL}
+cd linux-localbuild
 
 # released_kernel with possible stable updates
 %if 0%{?stable_base}
@@ -1480,6 +1482,8 @@ ApplyPatch br-fix-use-of-rx_handler_data-in-code-executed-on-no.patch
 
 #rhbz 1024002
 ApplyPatch libata-implement-ATA_HORKAGE_NO_NCQ_TRIM-and-apply-it-to-Micro-M500-SSDs.patch
+
+ApplyPatch kvm-mwait-nop-20130429.patch
 
 # END OF PATCH APPLICATIONS
 
@@ -1810,7 +1814,7 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/boot
 mkdir -p $RPM_BUILD_ROOT%{_libexecdir}
 
-cd linux-%{KVERREL}
+cd linux-localbuild
 
 %if %{with_debug}
 BuildKernel %make_target %kernel_image debug
@@ -1942,7 +1946,7 @@ find Documentation -type d | xargs chmod u+w
 
 %install
 
-cd linux-%{KVERREL}
+cd linux-localbuild
 
 %if %{with_doc}
 docdir=$RPM_BUILD_ROOT%{_datadir}/doc/kernel-doc-%{rpmversion}
@@ -2283,6 +2287,9 @@ fi
 #                 ||----w |
 #                 ||     ||
 %changelog
+* Wed Dec 18 2013 Stefan Ring <sring@gmx.net> - 3.12.5-302
+- With OSX KVM patch
+
 * Wed Dec 18 2013 Josh Boyer <jwboyer@fedoraproject.org>
 - Fix nowatchdog-on-virt.patch to actually work in KVM guests
 
