@@ -82,6 +82,7 @@ index 6667042..51fe874 100644
 -	[EXIT_REASON_MONITOR_INSTRUCTION]     = handle_invalid_op,
 +	[EXIT_REASON_MWAIT_INSTRUCTION]	      = handle_nop,
 +	[EXIT_REASON_MONITOR_INSTRUCTION]     = handle_nop,
+ 	[EXIT_REASON_INVEPT]                  = handle_invept,
  };
  
  static const int kvm_vmx_max_exit_handlers =
