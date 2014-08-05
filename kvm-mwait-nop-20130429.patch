@@ -9,10 +9,10 @@
 #        then causes OS X to revert to a HLT-based idle loop.
 ##############################################################################
 diff --git a/arch/x86/kvm/cpuid.c b/arch/x86/kvm/cpuid.c
-index a20ecb5..71783d4 100644
+index f47a104..e53005c 100644
 --- a/arch/x86/kvm/cpuid.c
 +++ b/arch/x86/kvm/cpuid.c
-@@ -225,6 +225,16 @@ static int do_cpuid_ent(struct kvm_cpuid_entry2 *entry, u32 function,
+@@ -283,6 +283,16 @@ static inline int __do_cpuid_ent(struct kvm_cpuid_entry2 *entry, u32 function,
  		0 /* Reserved */ | f_lm | F(3DNOWEXT) | F(3DNOW);
  	/* cpuid 1.ecx */
  	const u32 kvm_supported_word4_x86_features =
@@ -30,10 +30,10 @@ index a20ecb5..71783d4 100644
  		0 /* DS-CPL, VMX, SMX, EST */ |
  		0 /* TM2 */ | F(SSSE3) | 0 /* CNXT-ID */ | 0 /* Reserved */ |
 diff --git a/arch/x86/kvm/svm.c b/arch/x86/kvm/svm.c
-index e1b1ce2..b1f626b 100644
+index 7f4f9c2..dcdda28 100644
 --- a/arch/x86/kvm/svm.c
 +++ b/arch/x86/kvm/svm.c
-@@ -3259,6 +3259,12 @@ static int pause_interception(struct vcpu_svm *svm)
+@@ -3287,6 +3287,12 @@ static int pause_interception(struct vcpu_svm *svm)
  	return 1;
  }
  
@@ -46,7 +46,7 @@ index e1b1ce2..b1f626b 100644
  static int (*const svm_exit_handlers[])(struct vcpu_svm *svm) = {
  	[SVM_EXIT_READ_CR0]			= cr_interception,
  	[SVM_EXIT_READ_CR3]			= cr_interception,
-@@ -3316,8 +3322,8 @@ static int (*const svm_exit_handlers[])(struct vcpu_svm *svm) = {
+@@ -3344,8 +3350,8 @@ static int (*const svm_exit_handlers[])(struct vcpu_svm *svm) = {
  	[SVM_EXIT_CLGI]				= clgi_interception,
  	[SVM_EXIT_SKINIT]			= skinit_interception,
  	[SVM_EXIT_WBINVD]                       = emulate_on_interception,
@@ -58,10 +58,10 @@ index e1b1ce2..b1f626b 100644
  	[SVM_EXIT_NPF]				= pf_interception,
  };
 diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
-index 6667042..51fe874 100644
+index 138ceff..783eb9b 100644
 --- a/arch/x86/kvm/vmx.c
 +++ b/arch/x86/kvm/vmx.c
-@@ -5220,6 +5220,12 @@ static int handle_pause(struct kvm_vcpu *vcpu)
+@@ -5669,6 +5669,12 @@ static int handle_pause(struct kvm_vcpu *vcpu)
  	return 1;
  }
  
@@ -74,7 +74,7 @@ index 6667042..51fe874 100644
  static int handle_invalid_op(struct kvm_vcpu *vcpu)
  {
  	kvm_queue_exception(vcpu, UD_VECTOR);
-@@ -5901,8 +5907,8 @@ static int (*const kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
+@@ -6571,8 +6577,8 @@ static int (*const kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
  	[EXIT_REASON_EPT_VIOLATION]	      = handle_ept_violation,
  	[EXIT_REASON_EPT_MISCONFIG]           = handle_ept_misconfig,
  	[EXIT_REASON_PAUSE_INSTRUCTION]       = handle_pause,
@@ -85,24 +85,3 @@ index 6667042..51fe874 100644
  	[EXIT_REASON_INVEPT]                  = handle_invept,
  };
  
- static const int kvm_vmx_max_exit_handlers =
-##############################################################################
-# ioapic-polarity.patch.kvm-kmod (Alexander Graf <agraf@suse.de>)
-# GLS: enables OS X to get past "still waiting for root device" loop on boot
-# TODO: understand io/apic irq level polarity and how to maybe fix this at
-#       the Chameleon/SeaBIOS/QEMU level;
-##############################################################################
-diff --git a/virt/kvm/ioapic.c b/virt/kvm/ioapic.c
-index 5ba005c..f0177f3 100644
---- a/virt/kvm/ioapic.c
-+++ b/virt/kvm/ioapic.c
-@@ -238,7 +238,9 @@ int kvm_ioapic_set_irq(struct kvm_ioapic *ioapic, int irq, int irq_source_id,
- 	irq_level = __kvm_irq_line_state(&ioapic->irq_states[irq],
- 					 irq_source_id, level);
- 	entry = ioapic->redirtbl[irq];
-+/* from OS X patch by agraf@suse.de: "polarity is always active-high in qemu"
- 	irq_level ^= entry.fields.polarity;
-+*/
- 	if (!irq_level) {
- 		ioapic->irr &= ~mask;
- 		ret = 1;
