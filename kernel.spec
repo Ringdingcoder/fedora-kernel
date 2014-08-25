@@ -404,11 +404,7 @@ Summary: The Linux kernel
 
 # Should make listnewconfig fail if there's config options
 # printed out?
-%if %{nopatches}%{using_upstream_branch}
 %define listnewconfig_fail 0
-%else
-%define listnewconfig_fail 1
-%endif
 
 # To temporarily exclude an architecture from being built, add it to
 # %%nobuildarches. Do _NOT_ use the ExclusiveArch: line, because if we
