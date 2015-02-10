@@ -62,7 +62,7 @@ Summary: The Linux kernel
 # For non-released -rc kernels, this will be appended after the rcX and
 # gitX tags, so a 3 here would become part of release "0.rcX.gitX.3"
 #
-%global baserelease 2
+%global baserelease 3
 %global fedora_build %{baserelease}
 
 # base_sublevel is the kernel version we're starting with and patching
@@ -2105,7 +2105,15 @@ fi\
 #
 %define kernel_variant_posttrans() \
 %{expand:%%posttrans %{?1}}\
-/bin/kernel-install add %{KVERREL}%{?1:+%{1}} /%{image_install_path}/vmlinuz-%{KVERREL}%{?1:+%{1}} || exit $?\
+/sbin/new-kernel-pkg --package kernel%{?-v:-%{-v*}} --mkinitrd --dracut --depmod --update %{KVERREL}%{?-v:.%{-v*}} || exit $?\
+/sbin/new-kernel-pkg --package kernel%{?1:-%{1}} --rpmposttrans %{KVERREL}%{?1:.%{1}} || exit $?\
+%ifarch armv5tel\
+dtb=sheevaplug\
+cat /%{image_install_path}/vmlinuz-%{KVERREL}%{?1:+%{1}} /boot/dtb-%{KVERREL}%{?1:+%{1}}/kirkwood-$dtb.dtb > /var/tmp/zImage.$$ || exit $?\
+mkimage -A arm -O linux -C none -T kernel -a 0x00008000 -e 0x00008000 -n "Linux-Kirkwood-${dtb^}-%{KVERREL}%{?1:+%{1}}" -d /var/tmp/zImage.$$ /boot/uImage-%{KVERREL}%{?1:+%{1}}-${dtb}\
+rm /var/tmp/zImage.$$\
+mkimage -A arm -O linux -T ramdisk -C none -a 0 -e 0 -n initramfs -d /boot/initramfs-%{KVERREL}%{?1:+%{1}}.img /boot/uInitrd-%{KVERREL}%{?1:+%{1}}\
+%endif\
 %{nil}
 
 #
