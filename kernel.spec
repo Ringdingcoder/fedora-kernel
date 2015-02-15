@@ -62,7 +62,7 @@ Summary: The Linux kernel
 # For non-released -rc kernels, this will be appended after the rcX and
 # gitX tags, so a 3 here would become part of release "0.rcX.gitX.3"
 #
-%global baserelease 4
+%global baserelease 1
 %global fedora_build %{baserelease}
 
 # base_sublevel is the kernel version we're starting with and patching
@@ -74,7 +74,7 @@ Summary: The Linux kernel
 %if 0%{?released_kernel}
 
 # Do we have a -stable update to apply?
-%define stable_update 2
+%define stable_update 10
 # Is it a -stable RC?
 %define stable_rc 0
 # Set rpm version accordingly
@@ -734,39 +734,13 @@ Patch26012: acpi-video-Unregister-the-backlight-device-if-a-raw-.patch
 Patch26013: acpi-video-Add-use-native-backlight-quirk-for-the-Th.patch
 Patch26014: acpi-video-Add-use_native_backlight-quirk-for-HP-Pro.patch
 
-#rhbz 1094066
-Patch25096: drm-i915-set-backlight-duty-cycle-after-backlight-enable-for-gen4.patch
-
 #rhbz 1064516
 Patch25098: e1000e-Failure-to-write-SHRA-turns-on-PROMISC-mode.patch
-
-#rhbz 1099761
-Patch25099: NFS-populate-net-in-mount-data-when-remounting.patch
-
-#rhbz 1106856
-Patch25100: dm-thin-update-discard_granularity-to-reflect-the-thin-pool-blocksize.patch
-
-#rhbz 1103528
-Patch25101: elantech-Deal-with-clickpads-reporting-right-button-.patch
-
-Patch25102: intel_pstate-Fix-setting-VID.patch
-Patch25103: intel_pstate-dont-touch-turbo-bit-if-turbo-disabled-or-unavailable.patch
-Patch25104: intel_pstate-Update-documentation-of-max-min_perf_pct-sysfs-files.patch
-
-#CVE-2014-4508 rhbz 1111590 1112073
-Patch25106: x86_32-entry-Do-syscall-exit-work-on-badsys.patch
-
-#CVE-2014-0206 rhbz 1094602 1112975
-Patch25107: aio-fix-kernel-memory-disclosure-in-io_getevents-int.patch
-Patch25108: aio-fix-aio-request-leak-when-events-are-reaped-by-u.patch
 
 Patch25109: revert-input-wacom-testing-result-shows-get_report-is-unnecessary.patch
 
 #rhbz 1021036, submitted upstream
 Patch25110: 0001-ideapad-laptop-Change-Lenovo-Yoga-2-series-rfkill-ha.patch
-
-#rhbz 1015989
-Patch25111: netfilter-nf_nat-fix-oops-on-netns-removal.patch
 
 # END OF PATCH DEFINITIONS
 
@@ -1462,39 +1436,13 @@ ApplyPatch acpi-video-Unregister-the-backlight-device-if-a-raw-.patch
 ApplyPatch acpi-video-Add-use-native-backlight-quirk-for-the-Th.patch
 ApplyPatch acpi-video-Add-use_native_backlight-quirk-for-HP-Pro.patch
 
-#rhbz 1094066
-ApplyPatch drm-i915-set-backlight-duty-cycle-after-backlight-enable-for-gen4.patch
-
 #rhbz 1064516
 ApplyPatch e1000e-Failure-to-write-SHRA-turns-on-PROMISC-mode.patch
-
-#rhbz 1099761
-ApplyPatch NFS-populate-net-in-mount-data-when-remounting.patch
-
-#rhbz 1106856
-ApplyPatch dm-thin-update-discard_granularity-to-reflect-the-thin-pool-blocksize.patch
-
-#rhbz 1103528
-ApplyPatch elantech-Deal-with-clickpads-reporting-right-button-.patch
-
-ApplyPatch intel_pstate-Fix-setting-VID.patch
-ApplyPatch intel_pstate-dont-touch-turbo-bit-if-turbo-disabled-or-unavailable.patch
-ApplyPatch intel_pstate-Update-documentation-of-max-min_perf_pct-sysfs-files.patch
-
-#CVE-2014-4508 rhbz 1111590 1112073
-ApplyPatch x86_32-entry-Do-syscall-exit-work-on-badsys.patch
-
-#CVE-2014-0206 rhbz 1094602 1112975
-ApplyPatch aio-fix-kernel-memory-disclosure-in-io_getevents-int.patch
-ApplyPatch aio-fix-aio-request-leak-when-events-are-reaped-by-u.patch
 
 ApplyPatch revert-input-wacom-testing-result-shows-get_report-is-unnecessary.patch
 
 #rhbz 1021036, submitted upstream
 ApplyPatch 0001-ideapad-laptop-Change-Lenovo-Yoga-2-series-rfkill-ha.patch
-
-#rhbz 1015989
-ApplyPatch netfilter-nf_nat-fix-oops-on-netns-removal.patch
 
 # END OF PATCH APPLICATIONS
 
