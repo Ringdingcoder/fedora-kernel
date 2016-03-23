@@ -622,6 +622,9 @@ Patch660: 0001-drm-i915-Pretend-cursor-is-always-on-for-ILK-style-W.patch
 #Fix for known arm64 breakage. No bugzilla becuase proactivity \o/
 Patch661: 0001-arm64-account-for-sparsemem-section-alignment-when-c.patch
 
+Patch666: rcsum1.patch
+Patch667: rcsum2.patch
+
 # END OF PATCH DEFINITIONS
 %endif
 
@@ -2065,6 +2068,9 @@ fi
 #
 # 
 %changelog
+* Wed Mar 23 2016 Stefan Ring <stefanrin@gmail.com> - 4.4.5-301
+- with rcsum patches
+
 * Wed Mar 09 2016 Laura Abbott <labbott@redhat.com> - 4.4.5-300
 - Linux v4.4.5
 - Fix for known arm64 bootup issue
