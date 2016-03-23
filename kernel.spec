@@ -624,6 +624,7 @@ Patch661: 0001-arm64-account-for-sparsemem-section-alignment-when-c.patch
 
 Patch666: rcsum1.patch
 Patch667: rcsum2.patch
+Patch668: rcsum3.patch
 
 # END OF PATCH DEFINITIONS
 %endif
