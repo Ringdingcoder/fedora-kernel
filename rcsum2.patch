@@ -1,5 +1,5 @@
-commit f8ffad69c9f8b8dfb0b633425d4ef4d2493ba61a
-Author: Daniel Borkmann <daniel@iogearbox.net>
+From f8ffad69c9f8b8dfb0b633425d4ef4d2493ba61a Mon Sep 17 00:00:00 2001
+From: Daniel Borkmann <daniel@iogearbox.net>
 Date:   Thu Jan 7 15:50:23 2016 +0100
 
     bpf: add skb_postpush_rcsum and fix dev_forward_skb occasions

@@ -1,5 +1,5 @@
-commit 9b368814b336b0a1a479135eb2815edbc00efd3c
-Author: Linus Lüssing <linus.luessing@c0d3.blue>
+From 9b368814b336b0a1a479135eb2815edbc00efd3c Mon Sep 17 00:00:00 2001
+From: Linus Lüssing <linus.luessing@c0d3.blue>
 Date:   Wed Feb 24 04:21:42 2016 +0100
 
     net: fix bridge multicast packet checksum validation
